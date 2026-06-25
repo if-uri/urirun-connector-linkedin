@@ -1,0 +1,68 @@
+{
+  "id": "linkedin",
+  "name": "LinkedIn (official API)",
+  "status": "available",
+  "category": "Social",
+  "summary": "Publish posts, read your profile, and list feed activity over the official LinkedIn REST API, exposed as linkedin:// URI routes.",
+  "description": "LinkedIn is an external urirun connector that talks to the official LinkedIn REST API (https://api.linkedin.com). It uses OAuth 2.0 access tokens with approved scopes (r_liteprofile, r_member_social, w_member_social) — never the login/password flow and never browser automation. Routes: publish a text/media post (UGC Posts API), read your own profile, list your recent posts. Credentials are addressed by reference (getv://LINKEDIN_ACCESS_TOKEN or secret://keyring/linkedin#token) and resolved through the urirun secrets layer (deny-by-default); an empty token falls back to LINKEDIN_ACCESS_TOKEN env var. Every write route is gated by urirun's --execute on the registry runner, so a binding without --execute cannot publish.",
+  "useCases": [
+    "Publish a text post to LinkedIn from a urirun flow (official API, ToS-compliant).",
+    "Read your own profile fields (name, headline, member URN) for sanity-check before a flow.",
+    "List your recent posts to verify a publish landed."
+  ],
+  "flowExample": [
+    "linkedin://me/profile/query/read",
+    "linkedin://me/post/command/publish",
+    "linkedin://me/post/query/list"
+  ],
+  "requires": [
+    "python>=3.10",
+    "a LinkedIn Developer application with w_member_social + r_member_social + r_liteprofile scopes",
+    "an OAuth 2.0 access token (LINKEDIN_ACCESS_TOKEN) and your member URN (LINKEDIN_PERSON_URN)"
+  ],
+  "install": {
+    "mode": "urirun-extra",
+    "pipSpec": "urirun-connector-linkedin @ git+https://github.com/if-uri/urirun-connector-linkedin.git@v0.1.0"
+  },
+  "provenance": "verified",
+  "publisher": {
+    "name": "if-uri",
+    "url": "https://ifuri.com",
+    "github": "https://github.com/if-uri"
+  },
+  "docsUrl": "https://github.com/if-uri/urirun-connector-linkedin",
+  "keywords": [
+    "linkedin",
+    "social",
+    "publish",
+    "ugcposts",
+    "official-api",
+    "oauth",
+    "connector"
+  ],
+  "uriSchemes": [
+    "linkedin"
+  ],
+  "routes": [
+    "linkedin://me/profile/query/read",
+    "linkedin://me/post/command/publish",
+    "linkedin://me/post/query/list"
+  ],
+  "examples": [
+    {
+      "title": "Publish a text post",
+      "uri": "linkedin://me/post/command/publish",
+      "payload": {
+        "text": "Shipping a thing today."
+      }
+    },
+    {
+      "title": "Read profile",
+      "uri": "linkedin://me/profile/query/read",
+      "payload": {}
+    }
+  ],
+  "adapterKinds": [
+    "local-function"
+  ]
+}

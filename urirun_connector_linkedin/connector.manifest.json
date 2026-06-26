@@ -11,9 +11,9 @@
     "List your recent posts to verify a publish landed."
   ],
   "flowExample": [
-    "linkedin://me/profile/query/read",
-    "linkedin://me/post/command/publish",
-    "linkedin://me/post/query/list"
+    "linkedin://host/profile/query/read",
+    "linkedin://host/post/command/publish",
+    "linkedin://host/post/query/list"
   ],
   "requires": [
     "python>=3.10",
@@ -44,21 +44,21 @@
     "linkedin"
   ],
   "routes": [
-    "linkedin://me/profile/query/read",
-    "linkedin://me/post/command/publish",
-    "linkedin://me/post/query/list"
+    "linkedin://host/post/command/publish",
+    "linkedin://host/post/query/list",
+    "linkedin://host/profile/query/read"
   ],
   "examples": [
     {
       "title": "Publish a text post",
-      "uri": "linkedin://me/post/command/publish",
+      "uri": "linkedin://host/post/command/publish",
       "payload": {
         "text": "Shipping a thing today."
       }
     },
     {
       "title": "Read profile",
-      "uri": "linkedin://me/profile/query/read",
+      "uri": "linkedin://host/profile/query/read",
       "payload": {}
     }
   ],

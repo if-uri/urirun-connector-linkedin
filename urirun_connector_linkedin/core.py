@@ -44,6 +44,16 @@ import urirun
 CONNECTOR_ID = "linkedin"
 conn = urirun.connector(CONNECTOR_ID, scheme="linkedin")
 
+try:  # Optional contract runtime guard; absent toolkit must not break standalone connector import.
+    from urirun_connectors_toolkit.contract_gate import enforce as _enforce
+    from urirun_connector_linkedin.contracts import CONTRACTS as _CONTRACTS_EARLY
+
+    _enforce(conn, _CONTRACTS_EARLY,
+             validate=os.environ.get("URIRUN_CONTRACT_CHECK") == "1")
+    del _CONTRACTS_EARLY
+except Exception:  # noqa: BLE001 - contracts are CI/planner enrichment, not a hard runtime dependency
+    pass
+
 API_BASE = "https://api.linkedin.com"
 _resolve_secret = urirun.resolve_secret
 
@@ -274,6 +284,17 @@ def post_list(
         connector=CONNECTOR_ID, action="post_list",
         count=len(posts), posts=posts, author=author,
     )
+
+
+# Join route contracts onto the live bindings by route key so planners and MCP/A2A projections see
+# the declared output shape. Standalone installs without the contract toolkit keep working.
+try:
+    from urirun_connectors_toolkit.contract_gate import attach_contracts as _attach_contracts
+    from urirun_connector_linkedin.contracts import CONTRACTS as _CONTRACTS
+
+    _attach_contracts(conn, _CONTRACTS)
+except Exception:  # noqa: BLE001 - enrichment only
+    pass
 
 
 # --- authoring surface -------------------------------------------------------

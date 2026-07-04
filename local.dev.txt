@@ -4,6 +4,6 @@
 # deps declared: 2 | with local source: 1
 
 ## LOCAL DEPS  (dep | required | local source (version) | installed | status)
-urirun | >=0.4.14 | /home/tom/github/if-uri/urirun/adapters/python (0.4.190) | 0.4.190 editable | OK-EDITABLE  [pyproject.toml]
+urirun | >=0.4.14 | /home/tom/github/if-uri/urirun/adapters/python (0.4.190) | 0.4.190 editable @if-uri/venv | OK-EDITABLE  [pyproject.toml]
 
 ## EXTERNAL DEPS (no local source, 1): pytest

@@ -19,6 +19,36 @@ ROUTE_PUBLISH = "linkedin://host/post/command/publish"
 ROUTE_LIST = "linkedin://host/post/query/list"
 
 
+# --- draft (credential-free, no network) -------------------------------------
+
+def test_post_draft_prepares_without_network_or_creds() -> None:
+    """IFURI-060/062: draft path must never touch the network or need a token."""
+    with patch("urllib.request.urlopen", side_effect=AssertionError("draft must not call the API")):
+        r = core.post_draft(text="Shipping #ifuri today. #mcp")
+    assert r["ok"] is True
+    assert r["published"] is False
+    assert r["length"] == 27
+    assert r["remaining"] == 3000 - 27
+    assert r["over_limit"] is False
+    assert r["hashtags"] == ["#ifuri", "#mcp"]
+    assert r["preview"] == "Shipping #ifuri today. #mcp"
+
+
+def test_post_draft_requires_text() -> None:
+    r = core.post_draft(text="")
+    assert r["ok"] is False
+
+
+def test_post_draft_flags_over_limit() -> None:
+    r = core.post_draft(text="x" * 3200)
+    assert r["ok"] is True and r["over_limit"] is True and r["remaining"] < 0
+
+
+def test_post_draft_rejects_bad_visibility() -> None:
+    r = core.post_draft(text="hi", visibility="SECRET")
+    assert r["ok"] is False
+
+
 # --- helpers -----------------------------------------------------------------
 
 class _FakeResponse(io.BytesIO):

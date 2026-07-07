@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -283,6 +284,37 @@ def post_list(
     return urirun.ok(
         connector=CONNECTOR_ID, action="post_list",
         count=len(posts), posts=posts, author=author,
+    )
+
+
+POST_MAX_CHARS = 3000  # LinkedIn's per-post character limit for member UGC
+
+
+@conn.handler("post/command/draft", isolated=True,
+              meta={"label": "Prepare a LinkedIn post draft locally (no network, no creds)"})
+def post_draft(text: str = "", visibility: str = "PUBLIC") -> dict[str, Any]:
+    """Prepare a post draft WITHOUT publishing — pure, local, credential-free.
+
+    The real publish path needs an OAuth token, but "draft only, no publication"
+    tasks do not. This validates the copy, counts length against LinkedIn's
+    3000-char limit, extracts hashtags, and returns ``published:false`` — giving
+    the autonomy loop a credential-free deliverable instead of escalating for
+    creds it does not need. Touches no network.
+    """
+    if not text:
+        return urirun.fail("text is required", connector=CONNECTOR_ID, action="post_draft")
+    if visibility not in {"PUBLIC", "CONNECTIONS"}:
+        return urirun.fail(
+            f"visibility must be PUBLIC or CONNECTIONS, got: {visibility}",
+            connector=CONNECTOR_ID, action="post_draft",
+        )
+    length = len(text)
+    hashtags = list(dict.fromkeys(re.findall(r"#\w+", text)))
+    return urirun.ok(
+        connector=CONNECTOR_ID, action="post_draft",
+        published=False, visibility=visibility, length=length,
+        remaining=POST_MAX_CHARS - length, over_limit=length > POST_MAX_CHARS,
+        hashtags=hashtags, preview=text,
     )
 
 

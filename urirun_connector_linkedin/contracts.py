@@ -91,6 +91,41 @@ CONTRACTS: dict[str, Contract] = {
             },
         ),
     ),
+    "post/command/draft": Contract(
+        version="v1",
+        effect="command",
+        reversible=False,  # pure local preview — nothing external to undo
+        inp={"text": "str", "visibility": "?enum:PUBLIC|CONNECTIONS"},
+        out={
+            **_HEAD,
+            "action": "const:post_draft",
+            "published": "const:false",
+            "visibility": "enum:PUBLIC|CONNECTIONS",
+            "length": "int",
+            "remaining": "int",
+            "over_limit": "bool",
+            "hashtags": ["str"],
+            "preview": "str",
+        },
+        errors=("precondition-unmet",),
+        examples=(
+            {
+                "payload": {"text": "Shipping #ifuri today. #mcp", "visibility": "PUBLIC"},
+                "result": {
+                    "ok": True,
+                    "connector": "linkedin",
+                    "action": "post_draft",
+                    "published": False,
+                    "visibility": "PUBLIC",
+                    "length": 27,
+                    "remaining": 2973,
+                    "over_limit": False,
+                    "hashtags": ["#ifuri", "#mcp"],
+                    "preview": "Shipping #ifuri today. #mcp",
+                },
+            },
+        ),
+    ),
     "post/query/list": Contract(
         version="v1",
         effect="query",

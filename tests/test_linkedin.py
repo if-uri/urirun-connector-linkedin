@@ -52,11 +52,12 @@ def test_post_draft_rejects_bad_visibility() -> None:
 # --- helpers -----------------------------------------------------------------
 
 class _FakeResponse(io.BytesIO):
-    def __init__(self, body: bytes, status: int = 200, reason: str = "OK") -> None:
+    def __init__(self, body: bytes, status: int = 200, reason: str = "OK",
+                 headers: dict[str, str] | None = None) -> None:
         super().__init__(body)
         self.status = status
         self.reason = reason
-        self.headers = {}
+        self.headers = headers or {}
 
     def __enter__(self):
         return self
@@ -66,8 +67,8 @@ class _FakeResponse(io.BytesIO):
         return False
 
 
-def _ok_json(payload: dict[str, Any]) -> _FakeResponse:
-    return _FakeResponse(json.dumps(payload).encode("utf-8"))
+def _ok_json(payload: dict[str, Any], headers: dict[str, str] | None = None) -> _FakeResponse:
+    return _FakeResponse(json.dumps(payload).encode("utf-8"), headers=headers)
 
 
 def _http_error(status: int, reason: str, body: dict[str, Any]) -> urllib.error.HTTPError:
@@ -148,19 +149,21 @@ def test_profile_read_returns_member_urn_and_names(monkeypatch):
     monkeypatch.setattr(core.urllib.request, "Request", _Req)
     monkeypatch.setattr(core.urllib.request, "urlopen",
                         lambda req, timeout=30: _ok_json({
-                            "id": "ABC123",
-                            "localizedFirstName": "Tom",
-                            "localizedLastName": "Sapletta",
-                            "localizedHeadline": "ifURI",
+                            "sub": "ABC123",
+                            "given_name": "Tom",
+                            "family_name": "Sapletta",
+                            "name": "Tom Sapletta",
+                            "email": "tom@example.com",
                         }))
     result = li.profile_read(token="tok-123", secret_allow="")
     assert result["ok"] is True
     assert result["member_urn"] == "urn:li:person:ABC123"
     assert result["first_name"] == "Tom"
     assert result["last_name"] == "Sapletta"
-    assert result["headline"] == "ifURI"
+    assert result["full_name"] == "Tom Sapletta"
+    assert result["email"] == "tom@example.com"
     assert "Bearer tok-123" == captured["headers"]["Authorization"]
-    assert "/v2/me" in captured["url"]
+    assert "/v2/userinfo" in captured["url"]
 
 
 # --- publish -----------------------------------------------------------------
@@ -178,12 +181,13 @@ def test_post_publish_rejects_invalid_visibility():
     assert "PUBLIC or CONNECTIONS" in result["error"]
 
 
-def test_post_publish_happy_path_posts_ugcposts(monkeypatch):
+def test_post_publish_happy_path_posts_rest_posts(monkeypatch):
     captured, _Req = _captured_request()
     monkeypatch.setattr(core.urllib.request, "Request", _Req)
     monkeypatch.setattr(core.urllib.request, "urlopen",
                         lambda req, timeout=30: _FakeResponse(
-                            b'{"id":"urn:li:ugcPost:7"}', status=201, reason="Created"))
+                            b"{}", status=201, reason="Created",
+                            headers={"x-restli-id": "urn:li:share:7"}))
     result = li.post_publish(
         text="Shipping a thing today.",
         token="tok-abc",
@@ -192,35 +196,38 @@ def test_post_publish_happy_path_posts_ugcposts(monkeypatch):
     )
     assert result["ok"] is True
     assert result["published"] is True
-    assert result["post_urn"] == "urn:li:ugcPost:7"
+    assert result["post_urn"] == "urn:li:share:7"
     assert result["author"] == "urn:li:person:ABC"
     assert result["visibility"] == "PUBLIC"
-    # payload is the UGC Posts request body
+    # payload is the Posts API request body
     sent = json.loads(captured["data"])
     assert sent["author"] == "urn:li:person:ABC"
     assert sent["lifecycleState"] == "PUBLISHED"
-    assert sent["specificContent"]["com.linkedin.ugc.ShareContent"]["shareCommentary"]["text"] \
-        == "Shipping a thing today."
-    assert sent["visibility"]["com.linkedin.ugc.MemberNetworkVisibility"] == "PUBLIC"
-    assert captured["url"].endswith("/v2/ugcPosts")
+    assert sent["commentary"] == "Shipping a thing today."
+    assert sent["visibility"] == "PUBLIC"
+    assert sent["distribution"]["feedDistribution"] == "MAIN_FEED"
+    assert captured["url"].endswith("/rest/posts")
     assert captured["method"] == "POST"
+    assert captured["headers"]["LinkedIn-Version"] == core.LINKEDIN_API_VERSION
 
 
-def test_post_publish_resolves_urn_from_me_when_not_supplied(monkeypatch):
+def test_post_publish_resolves_urn_from_userinfo_when_not_supplied(monkeypatch):
     calls: list[str] = []
 
     def fake_urlopen(req, timeout=30):
-        if "/v2/me" in req.full_url if hasattr(req, "full_url") else "/v2/me" in req:
-            calls.append("me")
-            return _ok_json({"id": "FROM_ME"})
-        calls.append("ugcPosts")
-        return _FakeResponse(b'{"id":"urn:li:ugcPost:1"}', status=201, reason="Created")
+        url = req.full_url if hasattr(req, "full_url") else req
+        if "/v2/userinfo" in url:
+            calls.append("userinfo")
+            return _ok_json({"sub": "FROM_USERINFO"})
+        calls.append("posts")
+        return _FakeResponse(b"{}", status=201, reason="Created",
+                             headers={"x-restli-id": "urn:li:share:1"})
 
     monkeypatch.setattr(core.urllib.request, "urlopen", fake_urlopen)
     result = li.post_publish(text="hi", token="tok", person_urn="")
     assert result["ok"] is True
-    assert result["author"] == "urn:li:person:FROM_ME"
-    assert calls == ["me", "ugcPosts"]
+    assert result["author"] == "urn:li:person:FROM_USERINFO"
+    assert calls == ["userinfo", "posts"]
 
 
 def test_post_publish_maps_api_error_to_fail(monkeypatch):
@@ -244,23 +251,24 @@ def test_post_list_returns_parsed_posts(monkeypatch):
     monkeypatch.setattr(core.urllib.request, "urlopen",
                         lambda req, timeout=30: _ok_json({
                             "elements": [
-                                {"id": "urn:li:ugcPost:1",
+                                {"id": "urn:li:share:1",
                                  "lifecycleState": "PUBLISHED",
-                                 "created": {"time": "2026-06-23T10:00:00Z"},
-                                 "specificContent": {"com.linkedin.ugc.ShareContent": {
-                                     "shareCommentary": {"text": "post A"}}}},
-                                {"id": "urn:li:ugcPost:2",
-                                 "specificContent": {"com.linkedin.ugc.ShareContent": {
-                                     "shareCommentary": {"text": "post B"}}}},
+                                 "createdAt": 1750672800000,
+                                 "commentary": "post A"},
+                                {"id": "urn:li:share:2",
+                                 "lifecycleState": "PUBLISHED",
+                                 "createdAt": 1750669200000,
+                                 "commentary": "post B"},
                             ]}))
     result = li.post_list(token="tok", person_urn="urn:li:person:ABC", count=5)
     assert result["ok"] is True
     assert result["count"] == 2
     assert result["posts"][0]["text"] == "post A"
-    assert result["posts"][0]["created"] == "2026-06-23T10:00:00Z"
+    assert result["posts"][0]["created"] == 1750672800000
     # count is capped and author is URL-encoded
     assert "count=5" in captured["url"]
-    assert "authors=urn%3Ali%3Aperson%3AABC" in captured["url"]
+    assert "author=urn%3Ali%3Aperson%3AABC" in captured["url"]
+    assert captured["headers"]["X-RestLi-Method"] == "FINDER"
 
 
 def test_post_list_caps_count_to_50(monkeypatch):

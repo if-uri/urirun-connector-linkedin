@@ -8,19 +8,27 @@ This is the **sanctioned** write path: OAuth 2.0 access tokens with approved sco
 
 | URI | effect | API |
 | --- | --- | --- |
-| `linkedin://host/profile/query/read` | read your lite profile (name, headline, member URN) | `GET /v2/me` |
-| `linkedin://host/post/command/publish` | publish a text post (UGC Posts) | `POST /v2/ugcPosts` |
-| `linkedin://host/post/query/list` | list your recent posts | `GET /v2/ugcPosts?q=authors` |
+| `linkedin://host/profile/query/read` | read your OIDC identity (name, email, member URN) | `GET /v2/userinfo` |
+| `linkedin://host/post/command/publish` | publish a text post | `POST /rest/posts` (Posts API) |
+| `linkedin://host/post/query/list` | list your recent posts | `GET /rest/posts?q=author` |
+| `linkedin://host/post/command/draft` | prepare a post locally — no network, no creds | — |
+
+LinkedIn retired the legacy `r_liteprofile`/`GET /v2/me` and UGC Posts
+(`/v2/ugcPosts`) surfaces for new applications; this connector targets their
+replacements (OpenID Connect + the versioned Posts API).
 
 ## Prerequisites
 
-1. A **LinkedIn Developer application** — <https://www.linkedin.com/developers/apps/new>
-2. Approved **scopes** on that app:
-   - `r_liteprofile` (read profile)
-   - `r_member_social` (list posts)
-   - `w_member_social` (publish posts)
-3. An **OAuth 2.0 access token** (60-day member access token, or a longer-lived refresh flow)
-4. Your **member URN**, e.g. `urn:li:person:ABC123` — you can read it once via `profile/query/read` if you don't have it
+1. A **LinkedIn Developer application**, linked to a **Company Page** —
+   <https://www.linkedin.com/developers/apps/new> (LinkedIn requires every app
+   to be associated with a page; create a minimal one if you don't have one).
+2. Under the app's **Products** tab, request:
+   - **Sign In with LinkedIn using OpenID Connect** — self-serve, instant approval, grants `openid profile email`
+   - **Share on LinkedIn** — self-serve, instant approval, grants `w_member_social`
+   - `r_member_social` (needed for `post/query/list`) is **restricted to approved partners** — most self-serve apps won't get it; `profile/query/read` and `post/command/publish` work without it.
+3. An **OAuth 2.0 access token** via the [3-legged Authorization Code flow](https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow) (60-day access token, 365-day refresh token).
+4. Your **member URN**, e.g. `urn:li:person:abc123XYZ` — read it once via `profile/query/read` if you don't have it (derived from the OIDC `sub` claim).
+5. The **`LinkedIn-Version`** header LinkedIn requires on Posts API calls is pinned via `LINKEDIN_API_VERSION` (default in `core.py`, format `YYYYMM`); bump it if LinkedIn sunsets the default version.
 
 ## Setup
 
@@ -79,10 +87,11 @@ urirun run registry.json --uri 'linkedin://host/profile/query/read' --input '{}'
 {
   "ok": true,
   "action": "profile_read",
-  "member_urn": "urn:li:person:ABC123",
+  "member_urn": "urn:li:person:abc123XYZ",
   "first_name": "Tom",
   "last_name": "Sapletta",
-  "headline": "ifURI"
+  "full_name": "Tom Sapletta",
+  "email": "tom@example.com"
 }
 ```
 
@@ -111,7 +120,7 @@ pip install -e '.[test]'
 pytest tests/
 ```
 
-13 tests, fully offline (mocks `urllib.request` — never calls the real LinkedIn API).
+20 tests, fully offline (mocks `urllib.request` — never calls the real LinkedIn API).
 
 ## License
 

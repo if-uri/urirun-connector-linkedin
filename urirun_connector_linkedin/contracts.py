@@ -15,7 +15,7 @@ _HEAD = {"ok": "const:true", "connector": "const:linkedin"}
 
 CONTRACTS: dict[str, Contract] = {
     "profile/query/read": Contract(
-        version="v1",
+        version="v2",  # v1 read /v2/me (r_liteprofile, retired); v2 reads OIDC /v2/userinfo
         effect="query",
         inp={"token": "?str", "secret_allow": "?str"},
         out={
@@ -24,7 +24,8 @@ CONTRACTS: dict[str, Contract] = {
             "member_urn": "str",
             "first_name": "str",
             "last_name": "str",
-            "headline": "str",
+            "full_name": "str",
+            "email": "str",
             "raw": "obj",
         },
         errors=("unauthenticated", "unreachable"),
@@ -35,22 +36,24 @@ CONTRACTS: dict[str, Contract] = {
                     "ok": True,
                     "connector": "linkedin",
                     "action": "profile_read",
-                    "member_urn": "urn:li:person:ABC123",
+                    "member_urn": "urn:li:person:abc123XYZ",
                     "first_name": "Tom",
                     "last_name": "Sapletta",
-                    "headline": "ifURI",
+                    "full_name": "Tom Sapletta",
+                    "email": "tom@example.com",
                     "raw": {
-                        "id": "ABC123",
-                        "localizedFirstName": "Tom",
-                        "localizedLastName": "Sapletta",
-                        "localizedHeadline": "ifURI",
+                        "sub": "abc123XYZ",
+                        "given_name": "Tom",
+                        "family_name": "Sapletta",
+                        "name": "Tom Sapletta",
+                        "email": "tom@example.com",
                     },
                 },
             },
         ),
     ),
     "post/command/publish": Contract(
-        version="v1",
+        version="v2",  # v1 posted /v2/ugcPosts (retired); v2 posts /rest/posts (Posts API)
         effect="command",
         reversible=False,
         inp={
@@ -127,7 +130,7 @@ CONTRACTS: dict[str, Contract] = {
         ),
     ),
     "post/query/list": Contract(
-        version="v1",
+        version="v2",  # v1 read /v2/ugcPosts?q=authors (retired); v2 reads /rest/posts?q=author
         effect="query",
         inp={"token": "?str", "person_urn": "?str", "count": "?int", "secret_allow": "?str"},
         out={
@@ -139,7 +142,7 @@ CONTRACTS: dict[str, Contract] = {
                     "urn": "str",
                     "text": "str",
                     "lifecycleState": "str",
-                    "created": "str",
+                    "created": "int",
                 }
             ],
             "author": "str",
@@ -159,16 +162,16 @@ CONTRACTS: dict[str, Contract] = {
                     "count": 2,
                     "posts": [
                         {
-                            "urn": "urn:li:ugcPost:1",
+                            "urn": "urn:li:share:1",
                             "text": "post A",
                             "lifecycleState": "PUBLISHED",
-                            "created": "2026-06-23T10:00:00Z",
+                            "created": 1750672800000,
                         },
                         {
-                            "urn": "urn:li:ugcPost:2",
+                            "urn": "urn:li:share:2",
                             "text": "post B",
-                            "lifecycleState": "",
-                            "created": "",
+                            "lifecycleState": "PUBLISHED",
+                            "created": 1750669200000,
                         },
                     ],
                     "author": "urn:li:person:ABC",

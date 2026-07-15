@@ -12,3 +12,4 @@ htmlcov/
 .venv/
 venv/
 *.state/
+.code2llm_cache

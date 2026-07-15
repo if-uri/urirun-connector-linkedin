@@ -30,6 +30,9 @@ replacements (OpenID Connect + the versioned Posts API).
 4. Your **member URN**, e.g. `urn:li:person:abc123XYZ` — read it once via `profile/query/read` if you don't have it (derived from the OIDC `sub` claim).
 5. The **`LinkedIn-Version`** header LinkedIn requires on Posts API calls is pinned via `LINKEDIN_API_VERSION` (default in `core.py`, format `YYYYMM`); bump it if LinkedIn sunsets the default version.
 
+Full walkthrough (app creation + getting a token, two ways — a local shell
+script or a deployable `index.php`): [`docs/oauth-setup.md`](docs/oauth-setup.md).
+
 ## Setup
 
 ```bash
